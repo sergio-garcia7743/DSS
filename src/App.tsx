@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronRight, 
@@ -17,13 +17,34 @@ import {
 } from 'lucide-react';
 import { TRAINING_MODULES, COMMON_STEPS, type TrainingModule } from './constants';
 
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) {
+      setMatches(media.matches);
+    }
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [matches, query]);
+
+  return matches;
+}
+
 export default function App() {
   const [currentModuleId, setCurrentModuleId] = useState(1);
+  const [completedModules, setCompletedModules] = useState<number[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const isLargeScreen = useMediaQuery('(min-width: 1024px)');
 
   const currentModule = TRAINING_MODULES.find(m => m.id === currentModuleId) || TRAINING_MODULES[0];
 
   const handleNext = () => {
+    if (!completedModules.includes(currentModuleId)) {
+      setCompletedModules(prev => [...prev, currentModuleId]);
+    }
     if (currentModuleId < TRAINING_MODULES.length) {
       setCurrentModuleId(prev => prev + 1);
     }
@@ -35,11 +56,17 @@ export default function App() {
     }
   };
 
+  const toggleComplete = (id: number) => {
+    setCompletedModules(prev => 
+      prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
+    );
+  };
+
   return (
     <div className="flex h-screen bg-neutral-50 overflow-hidden font-sans">
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
-        {isSidebarOpen && (
+        {isSidebarOpen && !isLargeScreen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -54,70 +81,82 @@ export default function App() {
       <motion.aside
         id="sidebar"
         initial={false}
-        animate={{ x: isSidebarOpen ? 0 : -320 }}
-        className={`fixed inset-y-0 left-0 w-80 bg-white border-r border-neutral-200 z-50 lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out`}
+        animate={{ x: isSidebarOpen || isLargeScreen ? 0 : -320 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="fixed inset-y-0 left-0 w-80 bg-white border-r border-neutral-200 z-50 lg:relative lg:translate-x-0 overflow-hidden flex flex-col"
       >
-        <div className="flex flex-col h-full">
-          <div className="p-6 border-bottom border-neutral-100 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-neutral-900">
-              <Scissors className="w-6 h-6 text-neutral-600" />
-              <h1 className="font-bold tracking-tight text-lg">Sewing Academy</h1>
+        <div className="p-6 border-b border-neutral-100 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 text-neutral-900">
+            <div className="p-2 bg-neutral-900 rounded-lg">
+              <Scissors className="w-5 h-5 text-white" />
             </div>
-            <button 
-              onClick={() => setIsSidebarOpen(false)}
-              className="lg:hidden p-2 hover:bg-neutral-100 rounded-lg"
-            >
-              <X className="w-5 h-5 text-neutral-500" />
-            </button>
+            <h1 className="font-bold tracking-tight text-xl">DayStar</h1>
           </div>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-neutral-500" />
+          </button>
+        </div>
 
           <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-            {TRAINING_MODULES.map((module) => (
-              <button
-                key={module.id}
-                onClick={() => {
-                  setCurrentModuleId(module.id);
-                  setIsSidebarOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group ${
-                  currentModuleId === module.id 
-                    ? 'bg-neutral-900 text-white shadow-lg shadow-neutral-200' 
-                    : 'hover:bg-neutral-100 text-neutral-600'
-                }`}
-              >
-                <div className={`flex items-center justify-center w-8 h-8 rounded-lg text-xs font-bold shrink-0 ${
-                  currentModuleId === module.id 
-                    ? 'bg-white/20' 
-                    : 'bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200'
-                }`}>
-                  {module.id.toString().padStart(2, '0')}
-                </div>
-                <span className="font-medium truncate">{module.title}</span>
-                {currentModuleId === module.id && (
-                  <motion.div layoutId="active-indicator" className="ml-auto">
-                    <ChevronRight className="w-4 h-4 opacity-50" />
-                  </motion.div>
-                )}
-              </button>
-            ))}
+            {TRAINING_MODULES.map((module) => {
+              const isCompleted = completedModules.includes(module.id);
+              const isActive = currentModuleId === module.id;
+              
+              return (
+                <button
+                  key={module.id}
+                  onClick={() => {
+                    setCurrentModuleId(module.id);
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group ${
+                    isActive 
+                      ? 'bg-neutral-900 text-white shadow-lg shadow-neutral-200' 
+                      : 'hover:bg-neutral-100 text-neutral-600'
+                  }`}
+                >
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-lg text-xs font-bold shrink-0 transition-colors ${
+                    isActive 
+                      ? 'bg-white/20' 
+                      : isCompleted ? 'bg-green-100 text-green-600' : 'bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200'
+                  }`}>
+                    {isCompleted && !isActive ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
+                      module.id.toString().padStart(2, '0')
+                    )}
+                  </div>
+                  <span className={`font-medium truncate ${isCompleted && !isActive ? 'text-neutral-400' : ''}`}>
+                    {module.title}
+                  </span>
+                  {isActive && (
+                    <motion.div layoutId="active-indicator" className="ml-auto">
+                      <ChevronRight className="w-4 h-4 opacity-50" />
+                    </motion.div>
+                  )}
+                </button>
+              );
+            })}
           </nav>
 
           <div className="p-6 border-t border-neutral-100">
             <div className="bg-neutral-50 rounded-2xl p-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Progreso</span>
-                <span className="text-xs font-bold text-neutral-900">{Math.round((currentModuleId / TRAINING_MODULES.length) * 100)}%</span>
+                <span className="text-xs font-bold text-neutral-900">{Math.round((completedModules.length / TRAINING_MODULES.length) * 100)}%</span>
               </div>
               <div className="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
-                  animate={{ width: `${(currentModuleId / TRAINING_MODULES.length) * 100}%` }}
-                  className="h-full bg-neutral-900"
+                  animate={{ width: `${(completedModules.length / TRAINING_MODULES.length) * 100}%` }}
+                  className="h-full bg-green-500"
                 />
               </div>
             </div>
           </div>
-        </div>
       </motion.aside>
 
       {/* Main Content */}
@@ -148,6 +187,19 @@ export default function App() {
               </div>
               
               <div className="flex gap-2 shrink-0">
+                <button 
+                  onClick={() => toggleComplete(currentModuleId)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
+                    completedModules.includes(currentModuleId)
+                      ? 'bg-green-50 border-green-200 text-green-700'
+                      : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                  }`}
+                >
+                  <CheckCircle2 className={`w-4 h-4 ${completedModules.includes(currentModuleId) ? 'fill-green-500 text-white' : ''}`} />
+                  <span className="text-sm font-bold uppercase tracking-tight">
+                    {completedModules.includes(currentModuleId) ? 'Completado' : 'Marcar'}
+                  </span>
+                </button>
                 <button 
                   onClick={handlePrev}
                   disabled={currentModuleId === 1}
