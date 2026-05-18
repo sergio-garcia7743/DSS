@@ -1,0 +1,6 @@
+{
+  "name": "Sewing Operator Training",
+  "description": "A 10-module training platform for industrial sewing operators with step-by-step guidelines and video tutorials.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
